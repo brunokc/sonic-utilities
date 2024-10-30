@@ -582,7 +582,7 @@ def print_output_in_alias_mode(output, index):
     click.echo(output.rstrip('\n'))
 
 
-def run_command_in_alias_mode(command, shell=False):
+def run_command_in_alias_mode(command, shell=False, return_cmd=False):
     """Run command and replace all instances of SONiC interface names
        in output with vendor-sepecific interface aliases.
     """
@@ -592,6 +592,7 @@ def run_command_in_alias_mode(command, shell=False):
         command_str = command
     process = subprocess.Popen(command, text=True, shell=shell, stdout=subprocess.PIPE)
 
+    cmd_output = ""
     while True:
         output = process.stdout.readline()
         if output == '' and process.poll() is not None:
@@ -698,11 +699,17 @@ def run_command_in_alias_mode(command, shell=False):
                     converted_output = re.sub(r"(^|\s){}($|,{{0,1}}\s)".format(port_name),
                                               r"\1{}\2".format(iface_alias_converter.name_to_alias(port_name)),
                                               converted_output)
-                click.echo(converted_output.rstrip('\n'))
+                if return_cmd:
+                    cmd_output += converted_output
+                else:
+                    click.echo(converted_output.rstrip('\n'))
 
     rc = process.poll()
     if rc != 0:
         sys.exit(rc)
+
+    if return_cmd:
+        return cmd_output, process.returncode
 
 
 def run_command(command, display_cmd=False, ignore_error=False, return_cmd=False, interactive_mode=False, shell=False):
@@ -731,7 +738,7 @@ def run_command(command, display_cmd=False, ignore_error=False, return_cmd=False
     # with a list for next hops
     if (get_interface_naming_mode() == "alias" and not command_str.startswith("intfutil") and not re.search(
             "show ip|ipv6 route", command_str)):
-        return run_command_in_alias_mode(command, shell=shell)
+        return run_command_in_alias_mode(command, shell=shell, return_cmd=return_cmd)
 
     proc = subprocess.Popen(command, shell=shell, text=True, stdout=subprocess.PIPE)
 
